@@ -133,9 +133,21 @@ if __name__ == "__main__":
             )
 
         if len(image) == 1:
-            out_mesh_path = os.path.join(output_dir, str(i), "mesh.glb")
-            mesh.export(out_mesh_path, include_normals=True)
+            # out_mesh_path = os.path.join(output_dir, str(i), "mesh.glb")
+            # mesh.export(out_mesh_path, include_normals=True)
+            out_mesh_path = os.path.join(output_dir, str(i), "mesh.obj")
+            texture_path = os.path.join(output_dir, str(i), "texture.png")
+            mesh.export(out_mesh_path, include_normals=True, file_format="obj")
+            if "texture_image" in glob_dict:
+                glob_dict["texture_image"].save(texture_path)
+
         else:
+            # for j in range(len(mesh)):
+            #     out_mesh_path = os.path.join(output_dir, str(i + j), "mesh.glb")
+            #     mesh[j].export(out_mesh_path, include_normals=True)
             for j in range(len(mesh)):
-                out_mesh_path = os.path.join(output_dir, str(i + j), "mesh.glb")
-                mesh[j].export(out_mesh_path, include_normals=True)
+                out_mesh_path = os.path.join(output_dir, str(i + j), "mesh.obj")
+                texture_path = os.path.join(output_dir, str(i + j), "texture.png")
+                mesh[j].export(out_mesh_path, include_normals=True, file_format="obj")
+                if "texture_image" in glob_dict[j]:
+                    glob_dict[j]["texture_image"].save(texture_path)
