@@ -137,7 +137,7 @@ if __name__ == "__main__":
             # mesh.export(out_mesh_path, include_normals=True)
             out_mesh_path = os.path.join(output_dir, str(i), "mesh.obj")
             texture_path = os.path.join(output_dir, str(i), "texture.png")
-            mesh.export(out_mesh_path, include_normals=True, file_format="obj")
+            mesh.export(out_mesh_path, include_normals=True)
             if "texture_image" in glob_dict:
                 glob_dict["texture_image"].save(texture_path)
 
@@ -148,6 +148,6 @@ if __name__ == "__main__":
             for j in range(len(mesh)):
                 out_mesh_path = os.path.join(output_dir, str(i + j), "mesh.obj")
                 texture_path = os.path.join(output_dir, str(i + j), "texture.png")
-                mesh[j].export(out_mesh_path, include_normals=True, file_format="obj")
+                mesh[j].export(out_mesh_path, include_normals=True)
                 if "texture_image" in glob_dict[j]:
                     glob_dict[j]["texture_image"].save(texture_path)
