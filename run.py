@@ -1,5 +1,7 @@
 import argparse
 import os
+import re
+from PIL import Image
 from contextlib import nullcontext
 
 import rembg
@@ -134,23 +136,58 @@ if __name__ == "__main__":
 
         if len(image) == 1:
             out_mesh_path = os.path.join(output_dir, str(i), "mesh.obj")
+            out_mtl_path = os.path.join(output_dir, str(i), "material.mtl")
+            jpeg_texture_path = os.path.join(output_dir, str(i), "material_0.jpeg")
+            png_texture_path = os.path.join(output_dir, str(i), "texture.png")
+
             mesh.export(out_mesh_path, include_normals=True)
 
-            if "texture_image" in glob_dict:
-                texture_path = os.path.join(output_dir, str(i), "texture.png")
-                texture = glob_dict["texture_image"]
+            if os.path.exists(jpeg_texture_path):
+                image = Image.open(jpeg_texture_path)
+                image = image.convert("RGBA")
+                image.save(png_texture_path, format="PNG")
 
-                texture = texture.convert("RGBA")
-                texture.save(texture_path, format="PNG")
+                os.remove(jpeg_texture_path)
+            
+            if os.path.exists(out_mtl_path):
+                with open(out_mtl_path, "r") as f:
+                    mtl_content = f.read()
+
+                mtl_content = re.sub(r"map_Kd\s+material_0\.jpeg", f"map_Kd texture.png", mtl_content)
+
+                with open(out_mtl_path, "w") as f:
+                    f.write(mtl_content)
+            
+            print(f"Saved OBJ: {out_mesh_path}")
+            print(f"Converted Texture: {png_texture_path}")
+            print(f"Updated MTL: {out_mtl_path}")
 
         else:
             for j in range(len(mesh)):
                 out_mesh_path = os.path.join(output_dir, str(i + j), "mesh.obj")
+                out_mtl_path = os.path.join(output_dir, str(i + j), "material.mtl")
+                jpeg_texture_path = os.path.join(output_dir, str(i + j), "material_0.jpeg") 
+                png_texture_path = os.path.join(output_dir, str(i + j), "texture.png")
+                
                 mesh[j].export(out_mesh_path, include_normals=True)
                 
-                if "texture_image" in glob_dict[j]:
-                    texture_path = os.path.join(output_dir, str(i + j), "texture.png")
-                    texture = glob_dict[j]["texture_image"]
-                    texture = texture.convert("RGBA")
-                    texture.save(texture_path, format="PNG")
+                if os.path.exists(jpeg_texture_path):
+                    image = Image.open(jpeg_texture_path)
+                    image = image.convert("RGBA")
+                    image.save(png_texture_path, format="PNG")
+
+                    os.remove(jpeg_texture_path)
+                
+                if os.path.exists(out_mtl_path):
+                    with open(out_mtl_path, "r") as f:
+                        mtl_content = f.read()
+
+                    mtl_content = re.sub(r"map_Kd\s+material_0\.jpeg", f"map_Kd texture.png", mtl_content)
+
+                    with open(out_mtl_path, "w") as f:
+                        f.write(mtl_content)
+                
+                print(f"Saved OBJ: {out_mesh_path}")
+                print(f"Converted Texture: {png_texture_path}")
+                print(f"Updated MTL: {out_mtl_path}")
 
