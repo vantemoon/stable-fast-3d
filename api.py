@@ -3,6 +3,7 @@ import io
 import time
 import base64
 import tempfile
+import zipfile
 from contextlib import nullcontext
 from functools import lru_cache
 
@@ -61,6 +62,22 @@ def load_image_from_request(field: str = "image") -> Image.Image:
     image = Image.open(file.stream).convert("RGBA")
     return image
 
+def create_batch(input_image: Image.Image) -> dict:
+    img_resized = input_image.resize((COND_WIDTH, COND_HEIGHT))
+    img_array = np.asarray(img_resized).astype(np.float32) / 255.0
+    img_tensor = torch.from_numpy(img_array).float().clip(0, 1)
+    mask_cond = img_tensor[:, :, -1:]
+    rgb_cond = torch.lerp(torch.tensor(BACKGROUND_COLOR)[None, None, :],
+                          img_tensor[:, :, :3],
+                          mask_cond)
+    batch_elem = {
+        "rgb_cond": rgb_cond,
+        "mask_cond": mask_cond,
+        "c2w_cond": c2w_cond.unsqueeze(0),
+        "intrinsic_cond": intrinsic.unsqueeze(0),
+        "intrinsic_normed_cond": intrinsic_normed_cond.unsqueeze(0),
+    }
+    return {k: v.unsqueeze(0) for k, v in batch_elem.items()}
 
 @lru_cache(maxsize=32)
 def checkerboard(squares: int, size: int, min_value: float = 0.5):
@@ -149,7 +166,8 @@ def create_batch(input_image: Image.Image) -> dict:
     return batched
 
 
-def run_model_func(input_image: Image.Image, remesh_option: str, vertex_count: int, texture_size: int) -> str:
+def run_model_func(input_image: Image.Image, remesh_option: str,
+                   vertex_count: int, texture_size: int) -> dict:
     start = time.time()
     with torch.no_grad():
         context = torch.autocast(device_type=device, dtype=torch.float16) if "cuda" in device else nullcontext()
@@ -157,13 +175,50 @@ def run_model_func(input_image: Image.Image, remesh_option: str, vertex_count: i
             model_batch = create_batch(input_image)
             model_batch = {k: v.to(device) for k, v in model_batch.items()}
             trimesh_mesh, _ = model.generate_mesh(model_batch, texture_size, remesh_option, vertex_count)
-            trimesh_mesh = trimesh_mesh[0]
+            mesh = trimesh_mesh[0]
 
-    tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".glb")
-    trimesh_mesh.export(tmp_file.name, file_type="glb", include_normals=True)
-    generated_files.append(tmp_file.name)
+    # Create a temporary output directory
+    output_dir = tempfile.mkdtemp()
+    i = 0  # single output case
+    output_subdir = os.path.join(output_dir, str(i))
+    os.makedirs(output_subdir, exist_ok=True)
+
+    # Define file paths for OBJ, MTL, and texture files
+    out_mesh_path = os.path.join(output_subdir, "mesh.obj")
+    out_mtl_path = os.path.join(output_subdir, "material.mtl")
+    jpeg_texture_path = os.path.join(output_subdir, "material_0.jpeg")
+    png_texture_path = os.path.join(output_subdir, "texture.png")
+
+    # Export the mesh as OBJ (include normals)
+    mesh.export(out_mesh_path, include_normals=True)
+
+    # If a JPEG texture was created, convert it to PNG
+    if os.path.exists(jpeg_texture_path):
+        texture_img = Image.open(jpeg_texture_path)
+        texture_img = texture_img.convert("RGBA")
+        texture_img.save(png_texture_path, format="PNG")
+        os.remove(jpeg_texture_path)
+
+    # If a MTL file exists, update its contents to refer to the PNG texture
+    if os.path.exists(out_mtl_path):
+        with open(out_mtl_path, "r") as f:
+            mtl_content = f.read()
+        mtl_content = re.sub(r"map_Kd\s+material_0\.jpeg", "map_Kd texture.png", mtl_content)
+        with open(out_mtl_path, "w") as f:
+            f.write(mtl_content)
+
+    print(f"Saved OBJ: {out_mesh_path}")
+    print(f"Converted Texture: {png_texture_path}")
+    print(f"Updated MTL: {out_mtl_path}")
     print("Generation took:", time.time() - start, "s")
-    return tmp_file.name
+
+    # Return the paths of the output files
+    return {
+        "obj": out_mesh_path,
+        "mtl": out_mtl_path,
+        "png": png_texture_path,
+        "output_subdir": output_subdir
+    }
 
 # ------------------
 # API Endpoints
@@ -224,30 +279,29 @@ def update_foreground_ratio_endpoint():
 
 @app.route("/run_model", methods=["POST"])
 def run_model_endpoint():
-    """
-    Endpoint to run the 3D model reconstruction.
-    Expects an image along with parameters:
-     - remesh_option (e.g. "none", "triangle", "quad")
-     - vertex_count (integer)
-     - texture_size (integer)
-    Returns the generated 3D model as a .glb file.
-    """
     try:
         remesh_option = request.form.get("remesh_option", "none").lower()
         vertex_count = int(request.form.get("vertex_count", -1))
         texture_size = int(request.form.get("texture_size", 1024))
-        # The image should be the processed image (background already removed and cropped)
         input_image = load_image_from_request()
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
     try:
-        glb_filepath = run_model_func(input_image, remesh_option, vertex_count, texture_size)
+        output_files = run_model_func(input_image, remesh_option, vertex_count, texture_size)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-    # Send the generated file as a downloadable attachment.
-    return send_file(glb_filepath, as_attachment=True, download_name="output.glb", mimetype="application/octet-stream")
+    # Zip the output files (OBJ, MTL, PNG) for download
+    zip_temp = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+    with zipfile.ZipFile(zip_temp, 'w') as zipf:
+        for file_path in [output_files.get("obj"), output_files.get("mtl"), output_files.get("png")]:
+            if file_path and os.path.exists(file_path):
+                zipf.write(file_path, arcname=os.path.basename(file_path))
+    zip_temp.close()
+
+    return send_file(zip_temp.name, as_attachment=True,
+                     download_name="output.zip", mimetype="application/zip")
 
 
 @app.route("/requires_bg_remove", methods=["POST"])
