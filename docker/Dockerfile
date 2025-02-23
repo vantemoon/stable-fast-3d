@@ -71,6 +71,9 @@ RUN conda run -n sf3d-env pip install huggingface_hub
 # Install required packages for frone-end
 RUN pip install gunicorn
 RUN pip install flask
+RUN pip install flask-cors
+RUN pip install pillow
+RUN pip install rembg
 
 # Copy entrypoint script and make it executable
 COPY entrypoint.sh /app/entrypoint.sh
