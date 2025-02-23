@@ -258,27 +258,6 @@ def remove_background_endpoint():
     })
 
 
-@app.route("/update_foreground_ratio", methods=["POST"])
-def update_foreground_ratio_endpoint():
-    """
-    Endpoint to update the foreground ratio of a processed image.
-    Expects an image and a new foreground_ratio; returns the resized foreground and updated mask preview.
-    """
-    try:
-        foreground_ratio = float(request.form.get("foreground_ratio", 0.85))
-        input_image = load_image_from_request()
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
-
-    foreground_img = resize_foreground(input_image, foreground_ratio)
-    mask_preview = show_mask_img(foreground_img)
-
-    return jsonify({
-        "foreground_image": pil_to_base64(foreground_img),
-        "mask_preview": pil_to_base64(mask_preview)
-    })
-
-
 @app.route("/run_model", methods=["POST"])
 def run_model_endpoint():
     try:
@@ -304,40 +283,6 @@ def run_model_endpoint():
 
     return send_file(zip_temp.name, as_attachment=True,
                      download_name="output.zip", mimetype="application/zip")
-
-
-@app.route("/requires_bg_remove", methods=["POST"])
-def requires_bg_remove_endpoint():
-    """
-    Endpoint to check if the image already has a transparent background.
-    If the alpha channel has a minimum value of 0 (i.e. already contains transparency),
-    the endpoint will return processed images (cropped, resized, mask preview) and indicate that
-    no background removal is needed.
-    Otherwise, it indicates that background removal is required.
-    """
-    try:
-        foreground_ratio = float(request.form.get("foreground_ratio", 0.85))
-        input_image = load_image_from_request()
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
-
-    # Ensure image is in RGBA mode and check its alpha channel
-    input_image = input_image.convert("RGBA")
-    alpha_channel = np.array(input_image.getchannel("A"))
-    if alpha_channel.min() == 0:
-        # Image already has transparency; process further.
-        cropped_img = square_crop(input_image)
-        foreground_img = resize_foreground(cropped_img, foreground_ratio)
-        mask_preview = show_mask_img(foreground_img)
-        return jsonify({
-            "action": "run",
-            "cropped_image": pil_to_base64(cropped_img),
-            "foreground_image": pil_to_base64(foreground_img),
-            "mask_preview": pil_to_base64(mask_preview)
-        })
-    else:
-        # Background removal is required.
-        return jsonify({"action": "remove_background"})
 
 # ------------------
 # Main
