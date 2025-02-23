@@ -73,7 +73,7 @@ COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
 # Expose the port
-EXPOSE 7860
+EXPOSE 8000
 
 # Set the entrypoint
 ENTRYPOINT ["/app/entrypoint.sh"]

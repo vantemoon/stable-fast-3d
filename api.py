@@ -8,6 +8,7 @@ from contextlib import nullcontext
 from functools import lru_cache
 
 from flask import Flask, request, jsonify, send_file
+from flask_cors import CORS
 from PIL import Image
 import numpy as np
 import torch
@@ -17,6 +18,7 @@ import sf3d.utils as sf3d_utils
 from sf3d.system import SF3D
 
 app = Flask(__name__)
+CORS(app)
 
 COND_WIDTH = 512
 COND_HEIGHT = 512
