@@ -68,6 +68,9 @@ RUN conda run -n sf3d-env pip install --upgrade pydantic gradio
 # Install huggingface_hub
 RUN conda run -n sf3d-env pip install huggingface_hub
 
+# Install Guricorn
+RUN pip install gunicorn
+
 # Copy entrypoint script and make it executable
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
