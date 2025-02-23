@@ -282,6 +282,8 @@ def run_model_endpoint():
                 zipf.write(file_path, arcname=os.path.basename(file_path))
     zip_temp.close()
 
+    torch.cuda.empty_cache()
+
     return send_file(zip_temp.name, as_attachment=True,
                      download_name="output.zip", mimetype="application/zip")
 
