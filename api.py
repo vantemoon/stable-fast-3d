@@ -281,11 +281,12 @@ def run_model_endpoint():
             if file_path and os.path.exists(file_path):
                 zipf.write(file_path, arcname=os.path.basename(file_path))
     zip_temp.close()
+    resp = send_file(zip_temp.name, as_attachment=True, download_name="output.zip", mimetype="application/zip")
+    resp.headers["Output-Folder"] = output_files.get("output_subdir", "")
 
     torch.cuda.empty_cache()
 
-    return send_file(zip_temp.name, as_attachment=True,
-                     download_name="output.zip", mimetype="application/zip")
+    return resp
 
 # ------------------
 # Main
