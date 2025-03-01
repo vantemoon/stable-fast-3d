@@ -182,9 +182,10 @@ def run_model_func(input_image: Image.Image, remesh_option: str,
             mesh = trimesh_mesh[0]
 
     # Create a temporary output directory
-    output_dir = tempfile.mkdtemp()
-    i = 0  # single output case
-    output_subdir = os.path.join(output_dir, str(i))
+    output_base = "/shared"
+    # Generate a unique folder name (using uuid for example)
+    unique_folder = str(uuid.uuid4())
+    output_subdir = os.path.join(output_base, unique_folder)
     os.makedirs(output_subdir, exist_ok=True)
 
     # Define file paths for OBJ, MTL, and texture files
