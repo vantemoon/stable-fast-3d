@@ -283,6 +283,7 @@ def run_model_endpoint():
     zip_temp.close()
     resp = send_file(zip_temp.name, as_attachment=True, download_name="output.zip", mimetype="application/zip")
     resp.headers["Output-Folder"] = output_files.get("output_subdir", "")
+    resp.headers["Access-Control-Expose-Headers"] = "Output-Folder"
 
     torch.cuda.empty_cache()
 
