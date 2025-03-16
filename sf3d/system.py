@@ -364,6 +364,8 @@ class SF3D(BaseModule):
                             )
 
                     print("After Remesh", mesh.v_pos.shape[0], mesh.t_pos_idx.shape[0])
+                    print("Vertex Type", mesh.v_pos.dtype)
+                    print("Face Type", mesh.t_pos_idx.dtype)
                     mesh.unwrap_uv()
 
                     # Build textures
@@ -471,6 +473,7 @@ class SF3D(BaseModule):
 
                     verts_np = convert_data(mesh.v_pos)
                     faces = convert_data(mesh.t_pos_idx)
+                    faces = faces.astype(np.int64)
                     uvs = convert_data(mesh.v_tex)
 
                     basecolor_tex = Image.fromarray(
