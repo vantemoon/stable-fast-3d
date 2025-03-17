@@ -287,7 +287,10 @@ def run_model_endpoint():
     resp.headers["Output-Folder"] = output_files.get("output_subdir", "")
     resp.headers["Access-Control-Expose-Headers"] = "Output-Folder"
 
+    # Clear CUDA cache and check meomory usage
     torch.cuda.empty_cache()
+    torch.cuda.ipc_collect()
+    torch.cuda.memory_summary()
 
     return resp
 
